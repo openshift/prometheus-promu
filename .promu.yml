@@ -1,11 +1,14 @@
 go:
-    # Whenever the Go version is updated here, .travis.yml and
+    # Whenever the Go version is updated here,
     # .circle/config.yml should also be updated.
-    version: 1.15
+    version: 1.20
 repository:
     path: github.com/prometheus/promu
 build:
-    flags: -mod=vendor -a -tags 'netgo static_build'
+    tags:
+      all: [netgo, static_build]
+      windows: [static_build]
+    flags: -a
     ldflags: |
         -s
         -X github.com/prometheus/common/version.Version={{.Version}}

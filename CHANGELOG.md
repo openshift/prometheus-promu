@@ -1,4 +1,55 @@
-## 0.7.0 / 2020-10-28
+## 0.15.0 / 2023-07-04
+
+* [CHANGE] Use unmarshalstrict #240
+* [CHANGE] Add linux/riscv64 to default platforms #254
+
+## 0.14.0 / 2022-12-09
+
+* [FEATURE] Add the ability to override tags per GOOS
+
+## 0.13.0 / 2021-11-06
+
+* [ENHANCEMENT] Add windows/arm64 platform #225
+
+## 0.12.0 / 2021-04-12
+
+* [CHANGE] Unified CGO crossbuild image #219
+
+## 0.11.1 / 2021-03-20
+
+* [BUGFIX] Deduplicate platforms when two regexes match the same platform #214
+* [BUGFIX] Regexes are evaluated against all archs, and don't stop at the first match #214
+
+## 0.11.0 / 2021-03-20
+
+* [FEATURE] Add the ability to run parallel build threads independently #212
+
+## 0.10.0 / 2021-03-17
+
+* [FEATURE] Add parallel crossbuilds #208
+
+## 0.9.0 / 2021-03-16
+
+Note: promu crossbuild --platform flag is now a regexp. To
+      use multiple options, the flag can be repeated.
+
+* [CHANGE] Use regexp for crossbuild platforms #204
+
+## 0.8.1 / 2021-03-12
+
+This release is cut to publish `darwin/arm64` and `illumos/amd64` binaries of
+promu.
+
+* [ENHANCEMENT] Promu is now built from its default branch instead of a released
+  binary #205
+
+## 0.8.0 / 2021-03-11
+
+Note: The default build now requires Go 1.16.
+
+* [FEATURE] Add `darwin/arm64` and `illumos/amd64` to the default build #201
+
+## 0.7.0 / 2020-11-03
 
 * [FEATURE] Produce ZIP archives for Windows releases #195
 

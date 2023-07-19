@@ -20,12 +20,13 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
+	kingpin "github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/prometheus/promu/pkg/repository"
 	"github.com/prometheus/promu/util/sh"
@@ -66,7 +67,7 @@ OUTER:
 	return binaries, nil
 }
 
-func buildBinary(ext string, prefix string, ldflags string, binary Binary) {
+func buildBinary(ext string, prefix string, ldflags string, tags []string, binary Binary) {
 	info("Building binary: " + binary.Name)
 	binaryName := fmt.Sprintf("%s%s", binary.Name, ext)
 	fmt.Printf(" >   %s\n", binaryName)
@@ -80,6 +81,9 @@ func buildBinary(ext string, prefix string, ldflags string, binary Binary) {
 	}
 
 	params = append(params, sh.SplitParameters(flags)...)
+	if len(tags) > 0 {
+		params = append(params, "-tags", strings.Join(tags, ","))
+	}
 	params = append(params, path.Join(repoPath, binary.Path))
 	info("Building binary: " + "go " + strings.Join(params, " "))
 	if err := sh.RunCommand("go", params...); err != nil {
@@ -87,9 +91,9 @@ func buildBinary(ext string, prefix string, ldflags string, binary Binary) {
 	}
 }
 
-func buildAll(ext string, prefix string, ldflags string, binaries []Binary) {
+func buildAll(ext string, prefix string, ldflags string, tags []string, binaries []Binary) {
 	for _, binary := range binaries {
-		buildBinary(ext, prefix, ldflags, binary)
+		buildBinary(ext, prefix, ldflags, tags, binary)
 	}
 }
 
@@ -127,7 +131,7 @@ func runBuild(binariesString string) {
 	defer os.Unsetenv("CGO_ENABLED")
 
 	if binariesString == "all" {
-		buildAll(ext, prefix, ldflags, binaries)
+		buildAll(ext, prefix, ldflags, getTags(config.Build.Tags), binaries)
 		return
 	}
 
@@ -138,7 +142,7 @@ func runBuild(binariesString string) {
 	}
 
 	for _, binary := range binariesToBuild {
-		buildBinary(ext, prefix, ldflags, binary)
+		buildBinary(ext, prefix, ldflags, getTags(config.Build.Tags), binary)
 	}
 }
 
@@ -146,10 +150,11 @@ func getLdflags(info repository.Info) string {
 	var ldflags []string
 
 	if len(strings.TrimSpace(config.Build.LDFlags)) > 0 {
+		buildDate := getBuildDate()
 		var (
 			tmplOutput = new(bytes.Buffer)
 			fnMap      = template.FuncMap{
-				"date":     time.Now().UTC().Format,
+				"date":     buildDate.UTC().Format,
 				"host":     os.Hostname,
 				"repoPath": RepoPathFunc,
 				"user":     UserFunc,
@@ -183,6 +188,23 @@ func getLdflags(info repository.Info) string {
 	return strings.Join(ldflags[:], " ")
 }
 
+func getBuildDate() time.Time {
+	var buildDate time.Time
+
+	sourceDate := os.Getenv("SOURCE_DATE_EPOCH")
+	if sourceDate == "" {
+		buildDate = time.Now()
+	} else {
+		unixBuildDate, err := strconv.ParseInt(sourceDate, 10, 64)
+		if err != nil {
+			fatal(errors.Wrap(err, "Failed to parse SOURCE_DATE_EPOCH"))
+		} else {
+			buildDate = time.Unix(unixBuildDate, 0)
+		}
+	}
+	return buildDate
+}
+
 // UserFunc returns the current username.
 func UserFunc() (interface{}, error) {
 	// os/user.Current() doesn't always work without CGO
@@ -192,4 +214,11 @@ func UserFunc() (interface{}, error) {
 // RepoPathFunc returns the repository path.
 func RepoPathFunc() interface{} {
 	return config.Repository.Path
+}
+
+func getTags(allTags map[string][]string) []string {
+	if tags, ok := allTags[envOr("GOOS", goos)]; ok {
+		return tags
+	}
+	return allTags["all"]
 }
