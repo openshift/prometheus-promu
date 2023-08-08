@@ -17,15 +17,15 @@ package cmd
 import (
 	"fmt"
 	"go/build"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
+	kingpin "github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/promu/pkg/repository"
 	"github.com/prometheus/promu/util/sh"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -47,6 +47,7 @@ type Config struct {
 		Flags      string
 		LDFlags    string
 		ExtLDFlags []string
+		Tags       map[string][]string
 		Prefix     string
 		Static     bool
 	}
@@ -73,12 +74,7 @@ func NewConfig() *Config {
 	config.Build.Binaries = []Binary{{Name: projInfo.Name, Path: "."}}
 	config.Build.Prefix = "."
 	config.Build.Static = true
-	platforms := defaultMainPlatforms
-	platforms = append(platforms, defaultARMPlatforms...)
-	platforms = append(platforms, defaultPowerPCPlatforms...)
-	platforms = append(platforms, defaultMIPSPlatforms...)
-	platforms = append(platforms, defaultS390Platforms...)
-	config.Crossbuild.Platforms = platforms
+	config.Crossbuild.Platforms = defaultPlatforms
 	config.Tarball.Prefix = "."
 	config.Go.Version = "1.12"
 	config.Go.CGo = false
@@ -148,10 +144,10 @@ func Execute() {
 func initConfig(filename string) {
 	info(fmt.Sprintf("Using config file: %v", filename))
 
-	configData, err := ioutil.ReadFile(filename)
+	configData, err := os.ReadFile(filename)
 	checkError(err, "Unable to read config file: "+filename)
 	config = NewConfig()
-	err = yaml.Unmarshal(configData, config)
+	err = yaml.UnmarshalStrict(configData, config)
 	checkError(err, "Unable to parse config file: "+filename)
 }
 
@@ -210,7 +206,7 @@ func fileExists(path ...string) bool {
 
 // readFile reads a file and return the trimmed output
 func readFile(path string) string {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return ""
 	}
@@ -239,6 +235,16 @@ func stringInSlice(needle string, haystack []string) bool {
 		}
 	}
 	return false
+}
+
+func inSliceRE(needle *regexp.Regexp, haystack []string) []string {
+	var list []string
+	for _, hay := range haystack {
+		if needle.MatchString(hay) {
+			list = append(list, hay)
+		}
+	}
+	return list
 }
 
 func stringInMapKeys(needle string, haystack map[string][]string) bool {

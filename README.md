@@ -22,6 +22,9 @@ Commands:
   check licenses [<flags>] [<location>...]
     Inspect source files for each file in a given directory
 
+  check changelog [<flags>]
+    Check that CHANGELOG.md follows the guidelines
+
   checksum [<location>...]
     Calculate the SHA256 checksum for each file in the given location
 
@@ -39,7 +42,6 @@ Commands:
 
   version [<flags>]
     Print the version and exit
-
 ```
 
 ## `.promu.yml` config file
@@ -48,11 +50,11 @@ See documentation example [here](doc/examples/prometheus/.promu.yml)
 
 ## Compatibility
 
-* Go 1.12+
+* Go 1.14+
 
 ## More information
 
-* This tool is part of our reflexion about [Prometheus component Builds](https://docs.google.com/document/d/1Ql-f_aThl-2eB5v3QdKV_zgBdetLLbdxxChpy-TnWSE)
+* This tool is part of our reflection about [Prometheus component Builds](https://docs.google.com/document/d/1Ql-f_aThl-2eB5v3QdKV_zgBdetLLbdxxChpy-TnWSE)
 * All of the core developers are accessible via the [Prometheus Developers Mailinglist](https://groups.google.com/forum/?fromgroups#!forum/prometheus-developers) and the `#prometheus` channel on `irc.freenode.net`.
 
 ## Contributing
