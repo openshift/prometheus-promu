@@ -26,10 +26,13 @@ import (
 	"time"
 
 	kingpin "github.com/alecthomas/kingpin/v2"
-	"github.com/pkg/errors"
 
 	"github.com/prometheus/promu/pkg/repository"
 	"github.com/prometheus/promu/util/sh"
+)
+
+const (
+	sourceDateEpoch = "SOURCE_DATE_EPOCH"
 )
 
 var (
@@ -75,7 +78,8 @@ func buildBinary(ext string, prefix string, ldflags string, tags []string, binar
 	repoPath := config.Repository.Path
 	flags := config.Build.Flags
 
-	params := []string{"build",
+	params := []string{
+		"build",
 		"-o", path.Join(prefix, binaryName),
 		"-ldflags", ldflags,
 	}
@@ -87,7 +91,7 @@ func buildBinary(ext string, prefix string, ldflags string, tags []string, binar
 	params = append(params, path.Join(repoPath, binary.Path))
 	info("Building binary: " + "go " + strings.Join(params, " "))
 	if err := sh.RunCommand("go", params...); err != nil {
-		fatal(errors.Wrap(err, "command failed: "+strings.Join(params, " ")))
+		fatal(fmt.Errorf("command failed: %s: %w", strings.Join(params, " "), err))
 	}
 }
 
@@ -98,7 +102,7 @@ func buildAll(ext string, prefix string, ldflags string, tags []string, binaries
 }
 
 func runBuild(binariesString string) {
-	//Check required configuration
+	// Check required configuration
 	if len(strings.TrimSpace(config.Repository.Path)) == 0 {
 		log.Fatalf("missing required '%s' configuration", "repository.path")
 	}
@@ -138,7 +142,7 @@ func runBuild(binariesString string) {
 	binariesArray := strings.Split(binariesString, ",")
 	binariesToBuild, err := validateBinaryNames(binariesArray, binaries)
 	if err != nil {
-		fatal(errors.Wrap(err, "validation of given binary names for build command failed"))
+		fatal(fmt.Errorf("validation of given binary names for build command failed: %w", err))
 	}
 
 	for _, binary := range binariesToBuild {
@@ -155,7 +159,7 @@ func getLdflags(info repository.Info) string {
 			tmplOutput = new(bytes.Buffer)
 			fnMap      = template.FuncMap{
 				"date":     buildDate.UTC().Format,
-				"host":     os.Hostname,
+				"host":     HostFunc,
 				"repoPath": RepoPathFunc,
 				"user":     UserFunc,
 			}
@@ -164,11 +168,11 @@ func getLdflags(info repository.Info) string {
 
 		tmpl, err := template.New("ldflags").Funcs(fnMap).Parse(ldflagsTmpl)
 		if err != nil {
-			fatal(errors.Wrap(err, "Failed to parse ldflags text/template"))
+			fatal(fmt.Errorf("Failed to parse ldflags text/template: %w", err))
 		}
 
 		if err := tmpl.Execute(tmplOutput, info); err != nil {
-			fatal(errors.Wrap(err, "Failed to execute ldflags text/template"))
+			fatal(fmt.Errorf("Failed to execute ldflags text/template: %w", err))
 		}
 
 		ldflags = append(ldflags, strings.Split(tmplOutput.String(), "\n")...)
@@ -185,19 +189,19 @@ func getLdflags(info repository.Info) string {
 		ldflags = append(ldflags, fmt.Sprintf("-extldflags '%s'", strings.Join(extLDFlags, " ")))
 	}
 
-	return strings.Join(ldflags[:], " ")
+	return strings.Join(ldflags, " ")
 }
 
 func getBuildDate() time.Time {
 	var buildDate time.Time
 
-	sourceDate := os.Getenv("SOURCE_DATE_EPOCH")
+	sourceDate := os.Getenv(sourceDateEpoch)
 	if sourceDate == "" {
 		buildDate = time.Now()
 	} else {
 		unixBuildDate, err := strconv.ParseInt(sourceDate, 10, 64)
 		if err != nil {
-			fatal(errors.Wrap(err, "Failed to parse SOURCE_DATE_EPOCH"))
+			fatal(fmt.Errorf("Failed to parse %s: %w", sourceDateEpoch, err))
 		} else {
 			buildDate = time.Unix(unixBuildDate, 0)
 		}
@@ -205,10 +209,28 @@ func getBuildDate() time.Time {
 	return buildDate
 }
 
+func HostFunc() string {
+	if isReproducibleBuild() {
+		return "reproducible"
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "unknown-host"
+	}
+	return hostname
+}
+
 // UserFunc returns the current username.
 func UserFunc() (interface{}, error) {
+	if isReproducibleBuild() {
+		return "reproducible", nil
+	}
 	// os/user.Current() doesn't always work without CGO
 	return shellOutput("whoami"), nil
+}
+
+func isReproducibleBuild() bool {
+	return os.Getenv(sourceDateEpoch) != ""
 }
 
 // RepoPathFunc returns the repository path.

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	kingpin "github.com/alecthomas/kingpin/v2"
-	"github.com/pkg/errors"
 
 	"github.com/prometheus/promu/util/sh"
 )
@@ -64,8 +63,8 @@ func runTarball(binariesLocation string) {
 
 	dir := filepath.Join(tmpDir, name)
 
-	if err := os.MkdirAll(dir, 0777); err != nil {
-		fatal(errors.Wrap(err, "Failed to create directory"))
+	if err := os.MkdirAll(dir, 0o777); err != nil {
+		fatal(fmt.Errorf("Failed to create directory: %w", err))
 	}
 	defer sh.RunCommand("rm", "-rf", tmpDir)
 
@@ -80,7 +79,7 @@ func runTarball(binariesLocation string) {
 	}
 
 	if !fileExists(prefix) {
-		os.Mkdir(prefix, 0777)
+		os.Mkdir(prefix, 0o777)
 	}
 
 	tar := fmt.Sprintf("%s.tar.gz", name)

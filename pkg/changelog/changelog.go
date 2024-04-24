@@ -22,8 +22,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // Kind represents the type of a change.
@@ -100,10 +98,7 @@ type Changes []Change
 func (c Changes) Sorted() error {
 	less := func(k1, k2 Kinds) bool {
 		if len(k1) == 0 {
-			if len(k2) == 0 {
-				return true
-			}
-			return false
+			return len(k2) == 0
 		}
 		if len(k2) == 0 {
 			return true
@@ -125,7 +120,7 @@ func (c Changes) Sorted() error {
 	for i := 0; i < len(c)-1; i++ {
 		k1, k2 := c[i].Kinds, c[i+1].Kinds
 		if !less(k1, k2) {
-			return errors.Errorf("%q should be after %q", c[i].Text, c[i+1].Text)
+			return fmt.Errorf("%q should be after %q", c[i].Text, c[i+1].Text)
 		}
 	}
 	return nil
@@ -170,7 +165,7 @@ func ReadEntry(r io.Reader, version string) (*Entry, error) {
 			reading = true
 			t, err := time.Parse(dateFormat, m[1])
 			if err != nil {
-				return nil, errors.Wrap(err, "invalid changelog date")
+				return nil, fmt.Errorf("invalid changelog date: %w", err)
 			}
 			entry.Date = t
 		case strings.HasPrefix(line, "## "):
@@ -188,7 +183,7 @@ func ReadEntry(r io.Reader, version string) (*Entry, error) {
 	}
 
 	if entry.Date.IsZero() {
-		return nil, errors.Errorf(
+		return nil, fmt.Errorf(
 			"unable to locate release information in changelog for version %q, expected format: %q",
 			version,
 			reHeader)
